@@ -3,18 +3,47 @@ import cv2
 import mediapipe as mp
 import time
 
+import threading
+
+class VideoStream:
+    def __init__(self, src=0):
+        self.cap = cv2.VideoCapture(src)
+        self.ret, self.frame = self.cap.read()
+        self.stopped = False
+        self.lock = threading.Lock()
+        self.thread = threading.Thread(target=self.update, args=())
+        self.thread.daemon = True
+        self.thread.start()
+
+    def update(self):
+        while not self.stopped:
+            ret, frame = self.cap.read()
+            if ret:
+                with self.lock:
+                    self.ret, self.frame = ret, frame
+
+    def read(self):
+        with self.lock:
+            return self.ret, self.frame
+
+    def stop(self):
+        self.stopped = True
+        self.thread.join()
+        self.cap.release()
+
 class EyeContactDetector:
     def __init__(self):
         self.mp_face_mesh = mp.solutions.face_mesh
         self.face_mesh = self.define_mesh()
         self.mp_drawing = mp.solutions.drawing_utils
         self.drawing_spec = self.mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
-        self.cap = cv2.VideoCapture(0)
+        self.cap = VideoStream(0)
         self.calibrated_x, self.calibrated_y, self.calibrated_z = 6, 0, 0
         self.blinking = False
         self.EAR_THRESHOLD = 0.18
         self.eye_contact = False
         self._needs_calibration = False  # Private variable to track calibration status
+        self.isDrawingEnabled = True
 
     def define_mesh(self):
         return self.mp_face_mesh.FaceMesh(
@@ -89,7 +118,7 @@ class EyeContactDetector:
                                        [0, 0, 1]])
                 distortion_matrix = np.zeros((4, 1), dtype=np.float64)
 
-                success, rotation_vec, _ = cv2.solvePnP(face_3d, face_2d, cam_matrix, distortion_matrix)
+                success, rotation_vec, _ = cv2.solvePnP(face_3d, face_2d, cam_matrix, distortion_matrix, flags=cv2.SOLVEPNP_EPNP)
 
                 # Getting rotational angles of face
                 rmat, _ = cv2.Rodrigues(rotation_vec)
