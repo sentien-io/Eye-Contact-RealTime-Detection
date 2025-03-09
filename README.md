@@ -17,7 +17,7 @@ This project implements a real-time eye contact detection system using Python, O
 
 Ensure you have the following installed:
 
-- Python 3.7+
+- Python 3.7-3.11
 - `pip` (Python package manager)
 
 ### Python Libraries
